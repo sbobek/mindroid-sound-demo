@@ -49,7 +49,7 @@ public class RobotControl extends RobotControlActivity {
     public void commandProgram() throws SensorDisconnectedException {
         super.commandProgram();
         /*************** START YOUR PROGRAM HERE ***************/
-        robot.executeMotorTask(robot.motorA.run(-10,180));
+        robot.executeSyncTwoMotorTask(robot.motorA.run(100,180),robot.motorB.run(100,180));
         robot.touchSensor.connect(Sensor.Port.ONE);
 
         robot.touchSensor.registerListener(new TouchSensorListener() {
@@ -232,7 +232,7 @@ public class RobotControl extends RobotControlActivity {
             return;
         }
         stopOrientationScanning();
-        stopRecognizer();
+        if(recognizer != null) stopRecognizer();
         robot.executeSyncThreeMotorTask(robot.motorA.stop(), robot.motorB.stop(), robot.motorC.stop());
 
     }

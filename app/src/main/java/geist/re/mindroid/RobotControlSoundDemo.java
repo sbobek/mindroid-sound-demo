@@ -2,6 +2,7 @@ package geist.re.mindroid;
 
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
+import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -54,26 +55,43 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DBA);
         robot.soundSensor.registerListener(new SoundSensorListener() {
             public static final int SECONDS_WINDOW = 3;
-            public static final double SILENCE_THRESHOLD = 20;
+            public static final double SILENCE_THRESHOLD = 0.2;
+            private boolean deaf = false;
             private long lastNoise = System.currentTimeMillis();
             Random r = new Random();
             Rolling rolling = new Rolling((int)SoundSensorListener.DEFAULT_LISTENING_RATE* SECONDS_WINDOW);
-            String [] prompts = new String[]{"hello","so_quite"};
+            int [] prompts = new int[]{
+                    R.raw.anybody
+            };
 
             @Override
             public void onEventOccurred(SoundStateEvent e) {
                 double intensity = e.getSoundIntensity();
+                rolling.add(intensity);
                 Log.d(TAG, "Intensity "+intensity);
+
                 double avgNoise = rolling.getAverage();
                 int speed = 0;
-                if (avgNoise > SILENCE_THRESHOLD){
+                if (avgNoise > SILENCE_THRESHOLD && !deaf){
                     lastNoise = System.currentTimeMillis();
                     speed = (int)avgNoise;
                     robot.executeSyncTwoMotorTask(robot.motorA.run(speed,360),robot.motorB.run(speed,360));
                 }else{
-                    if(System.currentTimeMillis()-lastNoise > 10000){
-                        robot.executePlaySound(new PlaySoundTask(prompts[r.nextInt(prompts.length)]));
-                        lastNoise+=70000;
+                    if(System.currentTimeMillis()-lastNoise > 10000 && !deaf){
+                        deaf=true;
+                        int s = r.nextInt(prompts.length);
+                        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                                prompts[s]);
+                        mp.start();
+                        Log.d(TAG,"Playing sound...");
+                        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                            @Override
+                            public void onCompletion(MediaPlayer mediaPlayer) {
+                                deaf=false;
+                            }
+                        });
+                        //wait 5 seconds untill new prompt
+                        lastNoise+=5000;
                     }
                 }
             }
@@ -95,12 +113,9 @@ public class RobotControlSoundDemo extends RobotControlActivity {
             }
 
             robot.executeMotorTask(robot.motorC.run(sp,angle));
-            try {
-                int sleepTime = 1000+r.nextInt(3000);
-                Thread.sleep(sleepTime);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            int sleepTime = 1000+r.nextInt(3000);
+            pause(sleepTime);
+
         }
 
     }
@@ -299,7 +314,11 @@ public class RobotControlSoundDemo extends RobotControlActivity {
             return;
         }
         stopOrientationScanning();
-        stopRecognizer();
+        if(recognizer != null) stopRecognizer();
+        robot.soundSensor.unregisterListener();
+        robot.ultrasonicSensor.unregisterListener();
+        robot.lightSensor.unregisterListener();
+        robot.touchSensor.unregisterListener();
         robot.executeSyncThreeMotorTask(robot.motorA.stop(), robot.motorB.stop(), robot.motorC.stop());
 
     }
