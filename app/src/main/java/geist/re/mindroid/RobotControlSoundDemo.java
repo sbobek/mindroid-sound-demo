@@ -2,8 +2,6 @@ package geist.re.mindroid;
 
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
-import android.media.AudioManager;
-import android.media.SoundPool;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -19,12 +17,10 @@ import java.util.Random;
 import geist.re.mindlib.RobotControlActivity;
 import geist.re.mindlib.RobotService;
 import geist.re.mindlib.events.SoundStateEvent;
-import geist.re.mindlib.events.TouchStateEvent;
 import geist.re.mindlib.exceptions.SensorDisconnectedException;
 import geist.re.mindlib.hardware.Sensor;
-import geist.re.mindlib.hardware.SoundSensor;
 import geist.re.mindlib.listeners.SoundSensorListener;
-import geist.re.mindlib.listeners.TouchSensorListener;
+import geist.re.mindlib.tasks.PlaySoundTask;
 
 public class RobotControlSoundDemo extends RobotControlActivity {
     private static final String TAG = "ControlApp";
@@ -57,10 +53,12 @@ public class RobotControlSoundDemo extends RobotControlActivity {
 
         robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DBA);
         robot.soundSensor.registerListener(new SoundSensorListener() {
-            public static final int SECONDS = 3;
+            public static final int SECONDS_WINDOW = 3;
             public static final double SILENCE_THRESHOLD = 20;
-
-            Rolling rolling = new Rolling((int)SoundSensorListener.DEFAULT_LISTENING_RATE*SECONDS);
+            private long lastNoise = System.currentTimeMillis();
+            Random r = new Random();
+            Rolling rolling = new Rolling((int)SoundSensorListener.DEFAULT_LISTENING_RATE* SECONDS_WINDOW);
+            String [] prompts = new String[]{"hello","so_quite"};
 
             @Override
             public void onEventOccurred(SoundStateEvent e) {
@@ -69,10 +67,14 @@ public class RobotControlSoundDemo extends RobotControlActivity {
                 double avgNoise = rolling.getAverage();
                 int speed = 0;
                 if (avgNoise > SILENCE_THRESHOLD){
+                    lastNoise = System.currentTimeMillis();
                     speed = (int)avgNoise;
-                    robot.executeSyncTwoMotorTask(robot.motorA.run(speed,360),robot.motorA.run(speed,360));
+                    robot.executeSyncTwoMotorTask(robot.motorA.run(speed,360),robot.motorB.run(speed,360));
                 }else{
-                    //TODO: if nothing is happening over 10 seconds, start prompting by playing random prompt sound
+                    if(System.currentTimeMillis()-lastNoise > 10000){
+                        robot.executePlaySound(new PlaySoundTask(prompts[r.nextInt(prompts.length)]));
+                        lastNoise+=70000;
+                    }
                 }
             }
         });
