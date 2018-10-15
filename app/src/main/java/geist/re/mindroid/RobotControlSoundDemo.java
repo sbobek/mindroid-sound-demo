@@ -13,6 +13,8 @@ import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayDeque;
+import java.util.Queue;
 import java.util.Random;
 
 import geist.re.mindlib.RobotControlActivity;
@@ -38,7 +40,7 @@ public class RobotControlSoundDemo extends RobotControlActivity {
     TextView zText;
 
 
-
+    boolean breaking = false;
 
 
 
@@ -51,46 +53,72 @@ public class RobotControlSoundDemo extends RobotControlActivity {
     public void commandProgram() throws SensorDisconnectedException {
         super.commandProgram();
         /*************** START YOUR PROGRAM HERE ***************/
-        robot.executeSyncTwoMotorTask(robot.motorA.run(80,360),robot.motorB.run(40,360));
-        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
-                R.raw.hi);
-        mp.start();
+        breaking=false;
+        //robot.executeSyncTwoMotorTask(robot.motorA.run(80,360),robot.motorB.run(40,360));
+        //MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+        //        R.raw.hi);
+        //mp.start();
         robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DBA);
         robot.soundSensor.registerListener(new SoundSensorListener() {
             public static final int SECONDS_WINDOW = 3;
             public static final double SILENCE_THRESHOLD = 0.2;
             private boolean deaf = false;
+            private boolean playing = false;
             private long lastNoise = System.currentTimeMillis();
             Random r = new Random();
-            Rolling rolling = new Rolling((int)SoundSensorListener.DEFAULT_LISTENING_RATE* SECONDS_WINDOW);
+            Rolling rolling = new Rolling((int)(1000/SoundSensorListener.DEFAULT_LISTENING_RATE* SECONDS_WINDOW));
             int [] prompts = new int[]{
                     R.raw.anybody
+            };
+            int [] greets = new int[]{
+                R.raw.lauder,
+                R.raw.going
             };
 
             @Override
             public void onEventOccurred(SoundStateEvent e) {
                 double intensity = e.getSoundIntensity();
                 rolling.add(intensity);
-                Log.d(TAG, "Intensity "+intensity);
 
                 double avgNoise = rolling.getAverage();
+                Log.d(TAG, "Intensity "+intensity+ " average "+avgNoise);
                 int speed = 0;
                 if (avgNoise > SILENCE_THRESHOLD && !deaf){
                     lastNoise = System.currentTimeMillis();
-                    speed = (int)avgNoise;
-                    robot.executeSyncTwoMotorTask(robot.motorA.run(speed,360),robot.motorB.run(speed,360));
+                    speed = (int)(avgNoise*100);
+                    Log.d("SPEED","Is "+speed);
+                    robot.executeSyncTwoMotorTask(robot.motorA.run(speed),
+                            robot.motorB.run(speed));
+
+                    if(r.nextInt() < 3) {
+                        playing=true;
+                        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                                greets[r.nextInt(greets.length)]);
+                        //mp.start();
+                        Log.d(TAG, "Playing sound...");
+                        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                            @Override
+                            public void onCompletion(MediaPlayer mediaPlayer) {
+                                playing = false;
+                            }
+                        });
+                    }
                 }else{
-                    if(System.currentTimeMillis()-lastNoise > 10000 && !deaf){
-                        deaf=true;
+                    robot.executeSyncTwoMotorTask(robot.motorA.stop(),
+                            robot.motorB.stop());
+                    if(System.currentTimeMillis()-lastNoise > 10000 && !deaf && !playing){
+                     //   deaf=true;
+                        playing=true;
                         int s = r.nextInt(prompts.length);
                         MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                                 prompts[s]);
-                        mp.start();
+                        //mp.start();
                         Log.d(TAG,"Playing sound...");
                         mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                             @Override
                             public void onCompletion(MediaPlayer mediaPlayer) {
                                 deaf=false;
+                                playing=false;
                             }
                         });
                         //wait 5 seconds untill new prompt
@@ -100,22 +128,26 @@ public class RobotControlSoundDemo extends RobotControlActivity {
             }
         });
 
+        // Random head movement
         Random r = new Random();
         double drift = 0;
-        while(true){
+        while(!breaking){
             int side = r.nextInt(10);
-            int sp = r.nextInt(100);
-            int angle = r.nextInt(90);
+            int sp = r.nextInt(5);
+            int angle = r.nextInt(20);
             if(side < 5) {
+                angle = -angle;
                 sp = -sp;
             }
-            if(Math.abs(drift + sp) > 90){
+            if(Math.abs(drift + angle) > 20){
                 continue;
             }else{
-                drift += sp;
+                drift += angle;
             }
 
-            robot.executeMotorTask(robot.motorC.run(sp,angle));
+            Log.d(TAG, "drift "+drift+" angle "+angle);
+
+            robot.executeMotorTask(robot.motorC.run(sp,Math.abs(angle)));
             int sleepTime = 1000+r.nextInt(3000);
             pause(sleepTime);
 
@@ -124,31 +156,25 @@ public class RobotControlSoundDemo extends RobotControlActivity {
     }
 
     private  class Rolling {
+        private final Queue<Double> window = new ArrayDeque<Double>();
+        private final int period;
+        private double sum = 0.0;
 
-        private int size;
-        private double total = 0d;
-        private int noSamples = 0;
-        private int index = 0;
-        private double samples[];
-
-        public Rolling(int size) {
-            this.size = size;
-            samples = new double[size];
-            for (int i = 0; i < size; i++) samples[i] = 0d;
+        public Rolling(int period) {
+            this.period = period;
         }
 
-        public void add(double x) {
-            total -= samples[index];
-            samples[index] = x;
-            total += x;
-            if (++index == size) index = 0; // cheaper than modulus
-            if(noSamples < size) noSamples++;
+        public void add(double num) {
+            sum = sum + (num);
+            window.add(num);
+            if (window.size() > period) {
+                sum = sum - (window.remove());
+            }
         }
 
         public double getAverage() {
-            //Returns zero for ease. In general this should be NaN
-            if(noSamples < size) return 0;
-            return total / size;
+            if (window.size() < period) return 0;
+            return sum / (double)period;
         }
     }
 
@@ -316,6 +342,7 @@ public class RobotControlSoundDemo extends RobotControlActivity {
             Toast.makeText(this, "Waiting for robot to connect...", Toast.LENGTH_LONG).show();
             return;
         }
+        breaking = true;
         stopOrientationScanning();
         if(recognizer != null) stopRecognizer();
         robot.soundSensor.unregisterListener();
