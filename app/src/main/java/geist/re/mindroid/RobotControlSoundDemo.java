@@ -51,7 +51,10 @@ public class RobotControlSoundDemo extends RobotControlActivity {
     public void commandProgram() throws SensorDisconnectedException {
         super.commandProgram();
         /*************** START YOUR PROGRAM HERE ***************/
-
+        robot.executeSyncTwoMotorTask(robot.motorA.run(80,360),robot.motorB.run(40,360));
+        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.hi);
+        mp.start();
         robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DBA);
         robot.soundSensor.registerListener(new SoundSensorListener() {
             public static final int SECONDS_WINDOW = 3;
