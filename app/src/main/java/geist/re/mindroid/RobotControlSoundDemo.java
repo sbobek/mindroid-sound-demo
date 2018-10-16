@@ -21,6 +21,7 @@ import geist.re.mindlib.RobotControlActivity;
 import geist.re.mindlib.RobotService;
 import geist.re.mindlib.events.SoundStateEvent;
 import geist.re.mindlib.exceptions.SensorDisconnectedException;
+import geist.re.mindlib.hardware.Motor;
 import geist.re.mindlib.hardware.Sensor;
 import geist.re.mindlib.listeners.SoundSensorListener;
 import geist.re.mindlib.tasks.PlaySoundTask;
@@ -134,6 +135,7 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         Random r = new Random();
         double drift = 0;
         while(!breaking){
+            if(robot.motorC.getState() == Motor.STATE_RUNNING) pause(500);
             int side = r.nextInt(10);
             int sp = r.nextInt(5);
             int angle = r.nextInt(20);
