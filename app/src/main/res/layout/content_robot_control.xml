@@ -10,7 +10,7 @@
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
-    tools:context="geist.re.mindroid.RobotControl"
+    tools:context="geist.re.mindroid.RobotControlSoundDemo"
     tools:showIn="@layout/activity_robot_control">
 
     <android.support.design.widget.FloatingActionButton
@@ -141,5 +141,44 @@
         android:layout_alignStart="@+id/yText"
         android:layout_alignTop="@+id/textView6"
         android:text="@android:string/unknownName" />
+
+
+    <Button
+        android:id="@+id/hi"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@+id/connect"
+        android:onClick="hi"
+        android:text="Hi"
+        android:layout_toRightOf="@+id/connect" />
+
+    <Button
+        android:id="@+id/bye"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignStart="@+id/voice"
+        android:onClick="bye"
+        android:text="Bye"
+        android:layout_alignLeft="@+id/voice" />
+
+    <Button
+        android:id="@+id/yes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textView5"
+        android:layout_toEndOf="@+id/connect"
+        android:onClick="yes"
+        android:text="Yes"
+        android:layout_toRightOf="@+id/connect" />
+
+    <Button
+        android:id="@+id/no"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignEnd="@+id/bye"
+        android:layout_alignBottom="@+id/yes"
+        android:onClick="no"
+        android:text="No"
+        android:layout_alignRight="@+id/bye" />
 
 </RelativeLayout>

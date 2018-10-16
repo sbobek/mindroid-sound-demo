@@ -54,10 +54,6 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         super.commandProgram();
         /*************** START YOUR PROGRAM HERE ***************/
         breaking=false;
-        //robot.executeSyncTwoMotorTask(robot.motorA.run(80,360),robot.motorB.run(40,360));
-        //MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
-        //        R.raw.hi);
-        //mp.start();
         robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DBA);
         robot.soundSensor.registerListener(new SoundSensorListener() {
             public static final int SECONDS_WINDOW = 3;
@@ -65,13 +61,17 @@ public class RobotControlSoundDemo extends RobotControlActivity {
             private boolean deaf = false;
             private boolean playing = false;
             private long lastNoise = System.currentTimeMillis();
+            private long lastCall = System.currentTimeMillis();
             Random r = new Random();
             Rolling rolling = new Rolling((int)(1000/SoundSensorListener.DEFAULT_LISTENING_RATE* SECONDS_WINDOW));
             int [] prompts = new int[]{
-                    R.raw.anybody
+                    R.raw.anybody,
+                    R.raw.wannaplay,
+                    R.raw.donthear
             };
             int [] greets = new int[]{
                 R.raw.lauder,
+                R.raw.lauder2,
                 R.raw.going
             };
 
@@ -80,17 +80,19 @@ public class RobotControlSoundDemo extends RobotControlActivity {
                 double intensity = e.getSoundIntensity();
                 rolling.add(intensity);
 
+                if(System.currentTimeMillis()-lastCall < 500) return;
+                lastCall = System.currentTimeMillis();
+
                 double avgNoise = rolling.getAverage();
                 Log.d(TAG, "Intensity "+intensity+ " average "+avgNoise);
                 int speed = 0;
                 if (avgNoise > SILENCE_THRESHOLD && !deaf){
                     lastNoise = System.currentTimeMillis();
                     speed = (int)(avgNoise*100);
-                    Log.d("SPEED","Is "+speed);
                     robot.executeSyncTwoMotorTask(robot.motorA.run(speed),
                             robot.motorB.run(speed));
 
-                    if(r.nextInt() < 3) {
+                    if(r.nextInt(100) < 10) {
                         playing=true;
                         MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                                 greets[r.nextInt(greets.length)]);
@@ -107,7 +109,7 @@ public class RobotControlSoundDemo extends RobotControlActivity {
                     robot.executeSyncTwoMotorTask(robot.motorA.stop(),
                             robot.motorB.stop());
                     if(System.currentTimeMillis()-lastNoise > 10000 && !deaf && !playing){
-                     //   deaf=true;
+                     // ,l   deaf=true;
                         playing=true;
                         int s = r.nextInt(prompts.length);
                         MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
@@ -335,6 +337,31 @@ public class RobotControlSoundDemo extends RobotControlActivity {
             return;
         }
         startRecognizer();
+    }
+
+    public void hi(View v){
+        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.hi);
+        mp.start();
+    }
+
+    public void bye(View v){
+        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.bye);
+        mp.start();
+    }
+
+
+    public void yes(View v){
+        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.yes);
+        mp.start();
+    }
+
+    public void no(View v){
+        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.no);
+        mp.start();
     }
 
     public void stop(View c){
