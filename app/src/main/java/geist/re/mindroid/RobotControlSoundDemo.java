@@ -55,9 +55,9 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         super.commandProgram();
         /*************** START YOUR PROGRAM HERE ***************/
         breaking=false;
-        robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DBA);
+        robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DB);
         robot.soundSensor.registerListener(new SoundSensorListener() {
-            public static final int SECONDS_WINDOW = 3;
+            public static final int SECONDS_WINDOW = 1;
             public static final double SILENCE_THRESHOLD = 0.2;
             private boolean deaf = false;
             private boolean playing = false;
