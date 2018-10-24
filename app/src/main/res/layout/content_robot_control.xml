@@ -181,4 +181,35 @@
         android:text="No"
         android:layout_alignRight="@+id/bye" />
 
+    <Switch
+        android:id="@+id/sound"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toEndOf="@+id/connect"
+        android:text="Sound"
+        android:layout_toRightOf="@+id/connect" />
+
+    <Switch
+        android:id="@+id/eyes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignStart="@+id/voice"
+        android:layout_centerVertical="true"
+        android:text="Eyes"
+        android:layout_alignLeft="@+id/voice" />
+
+    <Switch
+        android:id="@+id/head"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@+id/sound"
+        android:layout_marginEnd="-114dp"
+        android:layout_marginBottom="-50dp"
+        android:layout_toStartOf="@+id/connect"
+        android:checked="true"
+        android:text="Head"
+        android:layout_marginRight="-114dp"
+        android:layout_toLeftOf="@+id/connect" />
+
 </RelativeLayout>

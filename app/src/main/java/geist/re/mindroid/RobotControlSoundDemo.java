@@ -10,6 +10,8 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,10 +22,13 @@ import java.util.Random;
 import geist.re.mindlib.RobotControlActivity;
 import geist.re.mindlib.RobotService;
 import geist.re.mindlib.events.SoundStateEvent;
+import geist.re.mindlib.events.UltrasonicStateEvent;
 import geist.re.mindlib.exceptions.SensorDisconnectedException;
 import geist.re.mindlib.hardware.Motor;
 import geist.re.mindlib.hardware.Sensor;
+import geist.re.mindlib.hardware.UltrasonicSensor;
 import geist.re.mindlib.listeners.SoundSensorListener;
+import geist.re.mindlib.listeners.UltrasonicSensorListener;
 import geist.re.mindlib.tasks.PlaySoundTask;
 
 public class RobotControlSoundDemo extends RobotControlActivity {
@@ -36,12 +41,105 @@ public class RobotControlSoundDemo extends RobotControlActivity {
     FloatingActionButton connect;
     FloatingActionButton orientation;
 
+    Switch headSw;
+    Switch soundSw;
+    Switch eyesSw;
+
+
     TextView xText;
     TextView yText;
     TextView zText;
 
 
     boolean breaking = false;
+    boolean head = true;
+
+    private SoundSensorListener soundListener  = new SoundSensorListener() {
+        public static final int SECONDS_WINDOW = 1;
+        public static final double SILENCE_THRESHOLD = 0.2;
+        private boolean deaf = false;
+        private boolean playing = false;
+        private long lastNoise = System.currentTimeMillis();
+        private long lastCall = System.currentTimeMillis();
+        Random r = new Random();
+        Rolling rolling = new Rolling((int)(1000/SoundSensorListener.DEFAULT_LISTENING_RATE* SECONDS_WINDOW));
+        int [] prompts = new int[]{
+                R.raw.anybody,
+                R.raw.wannaplay,
+                R.raw.donthear
+        };
+        int [] greets = new int[]{
+                R.raw.lauder,
+                R.raw.lauder2,
+                R.raw.going
+        };
+
+        @Override
+        public void onEventOccurred(SoundStateEvent e) {
+            double intensity = e.getSoundIntensity();
+            rolling.add(intensity);
+
+            if(System.currentTimeMillis()-lastCall < 500) return;
+            lastCall = System.currentTimeMillis();
+
+            double avgNoise = rolling.getAverage();
+            Log.d(TAG, "Intensity "+intensity+ " average "+avgNoise);
+            int speed = 0;
+            if (avgNoise > SILENCE_THRESHOLD && !deaf){
+                lastNoise = System.currentTimeMillis();
+                speed = (int)(avgNoise*100);
+                robot.executeSyncTwoMotorTask(robot.motorA.run(speed),
+                        robot.motorB.run(speed));
+
+                if(r.nextInt(100) < 30) {
+                    playing=true;
+                    MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                            greets[r.nextInt(greets.length)]);
+                    //mp.start();
+                    Log.d(TAG, "Playing sound...");
+                    mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                        @Override
+                        public void onCompletion(MediaPlayer mediaPlayer) {
+                            playing = false;
+                        }
+                    });
+                }
+            }else{
+                robot.executeSyncTwoMotorTask(robot.motorA.stop(),
+                        robot.motorB.stop());
+                if(System.currentTimeMillis()-lastNoise > 5000 && !deaf && !playing){
+                    // ,l   deaf=true;
+                    playing=true;
+                    int s = r.nextInt(prompts.length);
+                    MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                            prompts[s]);
+                    //mp.start();
+                    Log.d(TAG,"Playing sound...");
+                    mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                        @Override
+                        public void onCompletion(MediaPlayer mediaPlayer) {
+                            deaf=false;
+                            playing=false;
+                        }
+                    });
+                    //wait 5 seconds untill new prompt
+                    lastNoise+=5000;
+                }
+            }
+        }
+    };
+
+    UltrasonicSensorListener ultrasonicListener = new UltrasonicSensorListener() {
+        @Override
+        public void onEventOccurred(UltrasonicStateEvent e) {
+            // play sound and move backward if can't see a thing
+            Log.d(TAG, "Distance: "+e.getRawOutput());
+            if(robot.motorB.getState() != Motor.STATE_RUNNING && e.getDistanceInCentimeters() < 2){
+                //dark();
+                //robot.executeSyncTwoMotorTask(robot.motorA.run(-30,180),robot.motorB.run(-30,180));
+            }
+        }
+    };
 
 
 
@@ -56,85 +154,12 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         /*************** START YOUR PROGRAM HERE ***************/
         breaking=false;
         robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DB);
-        robot.soundSensor.registerListener(new SoundSensorListener() {
-            public static final int SECONDS_WINDOW = 1;
-            public static final double SILENCE_THRESHOLD = 0.2;
-            private boolean deaf = false;
-            private boolean playing = false;
-            private long lastNoise = System.currentTimeMillis();
-            private long lastCall = System.currentTimeMillis();
-            Random r = new Random();
-            Rolling rolling = new Rolling((int)(1000/SoundSensorListener.DEFAULT_LISTENING_RATE* SECONDS_WINDOW));
-            int [] prompts = new int[]{
-                    R.raw.anybody,
-                    R.raw.wannaplay,
-                    R.raw.donthear
-            };
-            int [] greets = new int[]{
-                R.raw.lauder,
-                R.raw.lauder2,
-                R.raw.going
-            };
-
-            @Override
-            public void onEventOccurred(SoundStateEvent e) {
-                double intensity = e.getSoundIntensity();
-                rolling.add(intensity);
-
-                if(System.currentTimeMillis()-lastCall < 500) return;
-                lastCall = System.currentTimeMillis();
-
-                double avgNoise = rolling.getAverage();
-                Log.d(TAG, "Intensity "+intensity+ " average "+avgNoise);
-                int speed = 0;
-                if (avgNoise > SILENCE_THRESHOLD && !deaf){
-                    lastNoise = System.currentTimeMillis();
-                    speed = (int)(avgNoise*100);
-                    robot.executeSyncTwoMotorTask(robot.motorA.run(speed),
-                            robot.motorB.run(speed));
-
-                    if(r.nextInt(100) < 10) {
-                        playing=true;
-                        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
-                                greets[r.nextInt(greets.length)]);
-                        //mp.start();
-                        Log.d(TAG, "Playing sound...");
-                        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                            @Override
-                            public void onCompletion(MediaPlayer mediaPlayer) {
-                                playing = false;
-                            }
-                        });
-                    }
-                }else{
-                    robot.executeSyncTwoMotorTask(robot.motorA.stop(),
-                            robot.motorB.stop());
-                    if(System.currentTimeMillis()-lastNoise > 10000 && !deaf && !playing){
-                     // ,l   deaf=true;
-                        playing=true;
-                        int s = r.nextInt(prompts.length);
-                        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
-                                prompts[s]);
-                        //mp.start();
-                        Log.d(TAG,"Playing sound...");
-                        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                            @Override
-                            public void onCompletion(MediaPlayer mediaPlayer) {
-                                deaf=false;
-                                playing=false;
-                            }
-                        });
-                        //wait 5 seconds untill new prompt
-                        lastNoise+=5000;
-                    }
-                }
-            }
-        });
+        robot.ultrasonicSensor.connect(Sensor.Port.THREE);
 
         // Random head movement
         Random r = new Random();
         double drift = 0;
-        while(!breaking){
+        while(!breaking && head){
             if(robot.motorC.getState() == Motor.STATE_RUNNING) pause(500);
             int side = r.nextInt(10);
             int sp = r.nextInt(5);
@@ -247,6 +272,7 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+
         start = (FloatingActionButton) findViewById(R.id.start);
         stop = (FloatingActionButton) findViewById(R.id.stop);
         voice = (FloatingActionButton) findViewById(R.id.voice);
@@ -259,11 +285,64 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         zText = (TextView) findViewById(R.id.zText);
 
 
+        headSw = (Switch) findViewById(R.id.head);
+        soundSw = (Switch) findViewById(R.id.sound);
+        eyesSw = (Switch) findViewById(R.id.eyes);
+
+
+
         start.setVisibility(FloatingActionButton.INVISIBLE);
         stop.setVisibility(FloatingActionButton.INVISIBLE);
         voice.setVisibility(FloatingActionButton.INVISIBLE);
         connect.setVisibility(FloatingActionButton.INVISIBLE);
         orientation.setVisibility(FloatingActionButton.INVISIBLE);
+        headSw.setEnabled(false);
+        soundSw.setEnabled(false);
+        eyesSw.setEnabled(false);
+
+
+        eyesSw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                // do something, the isChecked will be
+                // true if the switch is in the On position
+                if(isChecked) {
+                    try {
+                        robot.ultrasonicSensor.registerListener(ultrasonicListener);
+                    } catch (SensorDisconnectedException e) {
+                        e.printStackTrace();
+                    }
+                }else{
+                    robot.ultrasonicSensor.unregisterListener();
+                }
+            }
+        });
+
+        soundSw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                // do something, the isChecked will be
+                // true if the switch is in the On position
+                if(isChecked == true) {
+                    try {
+                        robot.soundSensor.registerListener(soundListener);
+                    } catch (SensorDisconnectedException e) {
+                        e.printStackTrace();
+                    }
+                }else{
+                    robot.soundSensor.unregisterListener();
+                }
+
+            }
+        });
+
+        headSw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if(isChecked){
+                    head = true;
+                }else{
+                    head=false;
+                }
+            }
+        });
 
         //keep the screen on
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -287,6 +366,9 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         voice.setVisibility(FloatingActionButton.VISIBLE);
         connect.setVisibility(FloatingActionButton.VISIBLE);
         orientation.setVisibility(FloatingActionButton.VISIBLE);
+        headSw.setEnabled(true);
+        soundSw.setEnabled(true);
+        eyesSw.setEnabled(true);
 
     }
 
@@ -301,7 +383,9 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         connect.setVisibility(FloatingActionButton.VISIBLE);
         orientation.setVisibility(FloatingActionButton.INVISIBLE);
 
-
+        headSw.setEnabled(false);
+        soundSw.setEnabled(false);
+        eyesSw.setEnabled(false);
 
     }
 
@@ -344,6 +428,18 @@ public class RobotControlSoundDemo extends RobotControlActivity {
     public void hi(View v){
         MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                 R.raw.hi);
+        mp.start();
+    }
+
+    public void dark(){
+        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.bye);
+        mp.start();
+    }
+
+    public void cantSee(){
+        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.bye);
         mp.start();
     }
 
