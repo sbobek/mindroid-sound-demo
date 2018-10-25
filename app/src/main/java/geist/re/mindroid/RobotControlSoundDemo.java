@@ -21,15 +21,15 @@ import java.util.Random;
 
 import geist.re.mindlib.RobotControlActivity;
 import geist.re.mindlib.RobotService;
+import geist.re.mindlib.events.LightStateEvent;
 import geist.re.mindlib.events.SoundStateEvent;
 import geist.re.mindlib.events.UltrasonicStateEvent;
 import geist.re.mindlib.exceptions.SensorDisconnectedException;
 import geist.re.mindlib.hardware.Motor;
 import geist.re.mindlib.hardware.Sensor;
-import geist.re.mindlib.hardware.UltrasonicSensor;
+import geist.re.mindlib.listeners.LightSensorListener;
 import geist.re.mindlib.listeners.SoundSensorListener;
 import geist.re.mindlib.listeners.UltrasonicSensorListener;
-import geist.re.mindlib.tasks.PlaySoundTask;
 
 public class RobotControlSoundDemo extends RobotControlActivity {
     private static final String TAG = "ControlApp";
@@ -53,6 +53,7 @@ public class RobotControlSoundDemo extends RobotControlActivity {
 
     boolean breaking = false;
     boolean head = true;
+    private boolean darkState = false;
 
     private SoundSensorListener soundListener  = new SoundSensorListener() {
         public static final int SECONDS_WINDOW = 1;
@@ -93,16 +94,19 @@ public class RobotControlSoundDemo extends RobotControlActivity {
 
                 if(r.nextInt(100) < 30) {
                     playing=true;
-                    MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                    final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                             greets[r.nextInt(greets.length)]);
-                    //mp.start();
+
                     Log.d(TAG, "Playing sound...");
                     mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                         @Override
                         public void onCompletion(MediaPlayer mediaPlayer) {
                             playing = false;
+                            mp.stop();
+                            mp.release();
                         }
                     });
+                    mp.start();
                 }
             }else{
                 robot.executeSyncTwoMotorTask(robot.motorA.stop(),
@@ -111,17 +115,20 @@ public class RobotControlSoundDemo extends RobotControlActivity {
                     // ,l   deaf=true;
                     playing=true;
                     int s = r.nextInt(prompts.length);
-                    MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                    final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                             prompts[s]);
-                    //mp.start();
+
                     Log.d(TAG,"Playing sound...");
                     mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                         @Override
                         public void onCompletion(MediaPlayer mediaPlayer) {
                             deaf=false;
                             playing=false;
+                            mp.stop();
+                            mp.release();
                         }
                     });
+                    mp.start();
                     //wait 5 seconds untill new prompt
                     lastNoise+=5000;
                 }
@@ -129,14 +136,14 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         }
     };
 
-    UltrasonicSensorListener ultrasonicListener = new UltrasonicSensorListener() {
+    LightSensorListener lightListener = new LightSensorListener() {
         @Override
-        public void onEventOccurred(UltrasonicStateEvent e) {
+        public void onEventOccurred(LightStateEvent e) {
             // play sound and move backward if can't see a thing
-            Log.d(TAG, "Distance: "+e.getRawOutput());
-            if(robot.motorB.getState() != Motor.STATE_RUNNING && e.getDistanceInCentimeters() < 2){
-                //dark();
-                //robot.executeSyncTwoMotorTask(robot.motorA.run(-30,180),robot.motorB.run(-30,180));
+            Log.d(TAG, "Intense: "+e.getLightIntensity());
+            if(robot.motorB.getState() != Motor.STATE_RUNNING && e.getLightIntensity() < 0.04){
+                dark();
+                robot.executeSyncTwoMotorTask(robot.motorA.run(-30,180),robot.motorB.run(-30,180));
             }
         }
     };
@@ -154,7 +161,7 @@ public class RobotControlSoundDemo extends RobotControlActivity {
         /*************** START YOUR PROGRAM HERE ***************/
         breaking=false;
         robot.soundSensor.connect(Sensor.Port.ONE, Sensor.Type.SOUND_DB);
-        robot.ultrasonicSensor.connect(Sensor.Port.THREE);
+        robot.lightSensor.connect(Sensor.Port.FOUR,Sensor.Type.LIGHT_INCTIVE);
 
         // Random head movement
         Random r = new Random();
@@ -307,12 +314,12 @@ public class RobotControlSoundDemo extends RobotControlActivity {
                 // true if the switch is in the On position
                 if(isChecked) {
                     try {
-                        robot.ultrasonicSensor.registerListener(ultrasonicListener);
+                        robot.lightSensor.registerListener(lightListener);
                     } catch (SensorDisconnectedException e) {
                         e.printStackTrace();
                     }
                 }else{
-                    robot.ultrasonicSensor.unregisterListener();
+                    robot.lightSensor.unregisterListener();
                 }
             }
         });
@@ -426,39 +433,86 @@ public class RobotControlSoundDemo extends RobotControlActivity {
     }
 
     public void hi(View v){
-        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+        final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                 R.raw.hi);
+        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                mp.stop();
+                mp.release();
+            }
+        });
+
         mp.start();
     }
 
     public void dark(){
-        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
-                R.raw.bye);
+        final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+                R.raw.dark);
+        darkState=true;
+        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                darkState=false;
+                mp.stop();
+                mp.release();
+            }
+        });
         mp.start();
     }
 
     public void cantSee(){
-        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+        final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                 R.raw.bye);
+        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                mp.stop();
+                mp.release();
+            }
+        });
         mp.start();
     }
 
     public void bye(View v){
-        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+        final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                 R.raw.bye);
+        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                mp.stop();
+                mp.release();
+            }
+        });
         mp.start();
     }
 
 
     public void yes(View v){
-        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+        final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                 R.raw.yes);
+        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                mp.stop();
+                mp.release();
+            }
+        });
+
         mp.start();
     }
 
     public void no(View v){
-        MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
+        final MediaPlayer mp = MediaPlayer.create(RobotControlSoundDemo.this,
                 R.raw.no);
+        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                mp.stop();
+                mp.release();
+            }
+        });
+
         mp.start();
     }
 
